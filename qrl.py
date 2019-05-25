@@ -9,7 +9,7 @@ from qiskit.aqua.algorithms.single_sample import HHL
 
 def build_circuit(matrix, vector_u, vector_p):
     n_io = int(np.log2(np.size(vector_u)))
-    vector_p /= np.linalg.norm(vector_p)
+    # vector_p /= np.linalg.norm(vector_p)
     # Parameters for HHL algorithm
     num_ancillae = 3
     num_time_slices = 50
@@ -66,7 +66,7 @@ def build_circuit(matrix, vector_u, vector_p):
     # Swap test: control swap for dot product
     qc.h(anc2)
     for i in range(n_io):
-        qc.cswap(anc2, psas[i], io[i])
+        qc.cswap(anc2, psas[i], io[i+1])
     qc.h(anc2)
     # Projection and meassurement
     qc.barrier(anc1)
@@ -76,6 +76,8 @@ def build_circuit(matrix, vector_u, vector_p):
     return qc
 
 def main(matrix, vector_u, vector_p):
+    assert np.abs(np.linalg.norm(vector_u))-1<1e-10 # assert vector_u is normalized
+    assert np.abs(np.linalg.norm(vector_p))-1<1e-10 # assert vector_p is normalized
     kappa = np.linalg.cond(matrix)
     shots = 8192
     qc = build_circuit(matrix, vector_u, vector_p)
@@ -101,26 +103,33 @@ def main(matrix, vector_u, vector_p):
             error += value
         elif int(k[0]) == 0:
             success += value
-    prob = 1-success/(shots-error)
-    dot_product = np.sqrt(1-2*prob)/kappa
-    return dot_product, error, counts
+    # prob1 = 1 - error/shots # Success probability in HHL anc1
+    prob2 = 1 - success/(shots-error) # Probability of failure of anc2
+    if prob2 > 0.5: prob2 = .5
+    dot_product = np.sqrt(1-2*prob2) #*np.linalg.norm(vector_p) # kappa*np.sqrt(prob1)
+    return dot_product, counts
 
 def classical_solver(matrix, vector_u, vector_p):
     A_inv = np.linalg.inv(np.matrix(matrix))
-    vector_u /= np.linalg.norm(vector_u)
-    vector_p /= np.linalg.norm(vector_p)
+    # vector_u /= np.linalg.norm(vector_u)
+    # vector_p /= np.linalg.norm(vector_p)
     x = A_inv*np.matrix(vector_u).T
+    x /= np.linalg.norm(x)
     kappa = np.linalg.cond(matrix)
     dot_product = x.T*np.matrix(vector_p).T
     return dot_product, x, kappa
 
-matrix = [[1, 1], [0, 2]]
-vector_u = [1, 1]
-vector_p = [1, 0]
+matrix = [[3, 1], [2, 1]]
+vector_u = [-1, 3]
+vector_p = [-1, -1]
 
 # matrix = [[1.5, 0.5], [0.5, 1.5]]
 # vector_u = [1, -1]/np.sqrt(2)
-# vector_p = [1, -1]/np.sqrt(2)
+# vector_p = [1, 1]/np.sqrt(2)
+
+vector_u/=np.linalg.norm(vector_u)
+vector_p/=np.linalg.norm(vector_p)
+
 sol = classical_solver(matrix, vector_u, vector_p)
 print(sol)
 sol=main(matrix, vector_u, vector_p)
