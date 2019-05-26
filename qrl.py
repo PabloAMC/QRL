@@ -66,7 +66,7 @@ def build_circuit(matrix, vector_u, vector_p):
     # Swap test: control swap for dot product
     qc.h(anc2)
     for i in range(n_io):
-        qc.cswap(anc2, psas[i], io[i+1])
+        qc.cswap(anc2, psas[i], io[i])
     qc.h(anc2)
     # Projection and meassurement
     qc.barrier(anc1)
